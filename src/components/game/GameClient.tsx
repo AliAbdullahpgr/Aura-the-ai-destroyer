@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useTransition } from 'react';
 import Image from 'next/image';
 import { story, type StoryNode, type Choice } from '@/lib/game-story';
-import { getAiVoice, getDynamicBackground } from '@/app/actions';
+import { getAiVoice } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,29 +68,17 @@ export function GameClient() {
     setChatLog(prev => [...prev, { speaker: 'AI', text: node.text, isGlitching: Math.abs(gameState.empathy - gameState.logic) > 50 }]);
     
     startTransition(async () => {
-      const [voiceResult, backgroundResult] = await Promise.all([
-        getAiVoice({
-          certaintyMeter: gameState.certainty,
-          empathyMeter: gameState.empathy,
-          logicMeter: gameState.logic,
-          text: node.text,
-        }),
-        getDynamicBackground({
-          empathyLevel: gameState.empathy,
-          certaintyLevel: gameState.certainty,
-        }),
-      ]);
+      const voiceResult = await getAiVoice({
+        certaintyMeter: gameState.certainty,
+        empathyMeter: gameState.empathy,
+        logicMeter: gameState.logic,
+        text: node.text,
+      });
 
       if (voiceResult.success) {
         setAudioUrl(voiceResult.data.audioUri);
       } else {
         toast({ variant: 'destructive', title: 'Error', description: voiceResult.error });
-      }
-
-      if (backgroundResult.success) {
-        setBackgroundUrl(backgroundResult.data.imageUrl);
-      } else {
-        toast({ variant: 'destructive', title: 'Error', description: backgroundResult.error });
       }
       
       setIsAiThinking(false);
@@ -108,18 +96,19 @@ export function GameClient() {
   };
 
   const handleChoice = (choice: Choice) => {
-    if (isAiThinking) return;
+    if (isAiThinking || isPending) return;
 
     // Add player's choice to chat log
     setChatLog(prev => [...prev, { speaker: 'PLAYER', text: choice.text }]);
 
     // Update game state
     startTransition(() => {
-        setGameState(prev => ({
-            certainty: Math.max(0, Math.min(100, prev.certainty + (choice.effects.certainty || 0))),
-            empathy: Math.max(0, Math.min(100, prev.empathy + (choice.effects.empathy || 0))),
-            logic: Math.max(0, Math.min(100, prev.logic + (choice.effects.logic || 0))),
-        }));
+        const newGameState = {
+            certainty: Math.max(0, Math.min(100, gameState.certainty + (choice.effects.certainty || 0))),
+            empathy: Math.max(0, Math.min(100, gameState.empathy + (choice.effects.empathy || 0))),
+            logic: Math.max(0, Math.min(100, gameState.logic + (choice.effects.logic || 0))),
+        };
+        setGameState(newGameState);
 
         const nextNode = story.find(n => n.id === choice.nextId);
         if (nextNode) {
@@ -175,9 +164,9 @@ export function GameClient() {
                     variant="outline"
                     className="h-auto min-h-12 justify-start text-left whitespace-normal leading-snug border-accent/50 hover:bg-accent/20 hover:text-accent-foreground"
                     onClick={() => handleChoice(choice)}
-                    disabled={isPending}
+                    disabled={isPending || isAiThinking}
                   >
-                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {(isPending || isAiThinking) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {choice.text}
                   </Button>
                 ))
