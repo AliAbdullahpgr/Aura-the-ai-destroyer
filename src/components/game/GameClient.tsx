@@ -189,7 +189,7 @@ export function GameClient() {
             </div>
           </div>
         </Card>
-        <audio ref={audioRef} src={audioUrl || ''} />
+        {audioUrl && <audio ref={audioRef} src={audioUrl} />}
       </div>
     </>
   );
