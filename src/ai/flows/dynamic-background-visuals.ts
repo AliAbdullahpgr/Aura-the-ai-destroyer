@@ -59,12 +59,14 @@ const dynamicBackgroundVisualsFlow = ai.defineFlow(
     outputSchema: DynamicBackgroundVisualsOutputSchema,
   },
   async input => {
+    const {output} = await prompt({
+      empathyLevel: input.empathyLevel,
+      certaintyLevel: input.certaintyLevel,
+    });
+    
     const {media} = await ai.generate({
       model: 'googleai/imagen-4.0-fast-generate-001',
-      prompt: prompt({
-        empathyLevel: input.empathyLevel,
-        certaintyLevel: input.certaintyLevel,
-      }).prompt,
+      prompt: `Generate a visual representation of an AI with empathy level ${input.empathyLevel} and certainty level ${input.certaintyLevel}. Use abstract data flows and color shifts.`,
     });
 
     if (!media || !media.url) {
